@@ -37,9 +37,11 @@ public class Lab {
             data = Arrays.copyOf(r.getData(), r.getLength());
         }
         //Forward response to user
+        byte[] response = createResponse(data);
         r.setAddress(userAddress);
         r.setPort(userPort);
-        senderSocket.send(r);
+        r.setData(response);
+        s.send(r);
     }
 
     /**
@@ -92,16 +94,32 @@ public class Lab {
             i+=1;
         }
         i+=17;
-        String nameserver = "";
+        StringBuilder nameserver = new StringBuilder();
         while (data[i] != 0){
-            int length = data[i];
+            int length = data[i] & 0xff;
+            if ((length & 0xc0) == 0xc0){
+                i = data[i+1];
+                length = data[i];
+            }
             i += 1;
             for (int j = 0; j < length; j++) {
-                nameserver += (char)data[i+j];
-                i += 1;
+                nameserver.append((char) (int) data[i + j]);
             }
-            nameserver += ".";
+            i+= length;
+            nameserver.append(".");
         }
         return InetAddress.getByName(nameserver.substring(0, nameserver.length()-1));
+    }
+
+    /**
+     * Manipulate the last answer before forwarding to the client.
+     * Set the RA bit and unset the AA bit.
+     * @param data - the payload of the last DNS request
+     * @return - payload to be send back to user
+     */
+    public static byte[] createResponse(byte[] data){
+        data[3] = (byte)(data[3] | 0x40);
+        data[2] = (byte)(data[2] & 0xfb);
+        return data;
     }
 }
