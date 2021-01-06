@@ -1,4 +1,3 @@
-import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.net.*;
 import java.util.Arrays;
@@ -7,7 +6,7 @@ import java.util.Arrays;
 public class Lab {
     public static void main(String[] args) throws IOException{
         final int UDP_SIZE = 512;
-        final int UDP_PORT = 53;
+        final int DNS_PORT = 53;
         final int LISTEN_PORT = 5300;
         /*
         1. Listen on UDP port 5300
@@ -20,20 +19,20 @@ public class Lab {
         DatagramPacket r = new DatagramPacket(new byte[UDP_SIZE], UDP_SIZE);
         DatagramSocket s = new DatagramSocket(LISTEN_PORT);
         s.receive(r);
+        InetAddress userAddress = r.getAddress();
+        int userPort = r.getPort();
         // Send packet to root
         DatagramSocket senderSocket = new DatagramSocket();
-        DatagramPacket query = new DatagramPacket(r.getData(), r.getLength(),getRoot(),UDP_PORT);
-        InetAddress userAddress = query.getAddress();
-        int userPort = query.getPort();
+        byte[] data = Arrays.copyOf(r.getData(), r.getLength());
+        DatagramPacket query = new DatagramPacket(data, r.getLength(),getRoot(),DNS_PORT);
         senderSocket.send(query);
         // Get response from root
         senderSocket.receive(r);
-        byte[] data = Arrays.copyOf(r.getData(), r.getLength());
+        data = Arrays.copyOf(r.getData(), r.getLength());
         // Query name servers iteratively
         while (isNoError(data) && getAnswer(data) == 0 && getAuthority(data) > 0){
-            InetAddress add = getNextServer(data);
-            byte[] newData = createQuery(data);
-            senderSocket.send(new DatagramPacket(newData,newData.length, add, UDP_PORT));
+            InetAddress address = getNextServer(data);
+            senderSocket.send(new DatagramPacket(query.getData(),query.getLength(), address, DNS_PORT));
             senderSocket.receive(r);
             data = Arrays.copyOf(r.getData(), r.getLength());
         }
@@ -46,9 +45,9 @@ public class Lab {
     /**
      * Randomly decides on a root server
      * @return InetAddress of random root server
-     * @throws IOException if hostname of root server not valid (should not happen)
+     * @throws UnknownHostException if hostname of root server not valid (should not happen)
      */
-    public static InetAddress getRoot() throws IOException {
+    public static InetAddress getRoot() throws UnknownHostException {
         char r =(char)(int)(Math.random() * 13 + 97);
         return InetAddress.getByName(r + ".root-servers.net");
     }
@@ -59,7 +58,7 @@ public class Lab {
      * @return - true if NOERROR, else false
      */
     public static boolean isNoError(byte[] data){
-        return true;
+        return data[3] == 0;
     }
 
     /**
@@ -68,7 +67,8 @@ public class Lab {
      * @return - the ANSWER record from the payload
      */
     public static int getAnswer(byte[] data){
-        return 0;
+        int answer = data[6];
+        return (answer << 8) | data[7];
     }
 
     /**
@@ -77,7 +77,7 @@ public class Lab {
      * @return - the number of AUTHORITY in the payload
      */
     public static int getAuthority(byte[] data){
-        return data[2] & 0x4;
+        return (data[2] & 0x4) >> 2;
     }
 
     /**
@@ -85,17 +85,7 @@ public class Lab {
      * @param data - payload of DNS response
      * @return - address of next server to send query
      */
-    public static InetAddress getNextServer(byte[] data){
-
+    public static InetAddress getNextServer(byte[] data) throws UnknownHostException {
+        return InetAddress.getByAddress(data);
     }
-
-    /**
-     * Manipulate the payload from the last packet to forward to next server
-     * @param data - the payload last sent
-     * @return - the payload to send next server
-     */
-    public static byte[] createQuery(byte[] data){
-
-    }
-
 }
