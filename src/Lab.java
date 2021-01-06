@@ -77,7 +77,8 @@ public class Lab {
      * @return - the number of AUTHORITY in the payload
      */
     public static int getAuthority(byte[] data){
-        return (data[2] & 0x4) >> 2;
+        int answer = data[8];
+        return (answer << 8) | data[9];
     }
 
     /**
@@ -86,6 +87,21 @@ public class Lab {
      * @return - address of next server to send query
      */
     public static InetAddress getNextServer(byte[] data) throws UnknownHostException {
-        return InetAddress.getByAddress(data);
+        int i = 12;
+        while (data[i] != 0){
+            i+=1;
+        }
+        i+=17;
+        String nameserver = "";
+        while (data[i] != 0){
+            int length = data[i];
+            i += 1;
+            for (int j = 0; j < length; j++) {
+                nameserver += (char)data[i+j];
+                i += 1;
+            }
+            nameserver += ".";
+        }
+        return InetAddress.getByName(nameserver.substring(0, nameserver.length()-1));
     }
 }
