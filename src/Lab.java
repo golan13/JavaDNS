@@ -1,6 +1,7 @@
 import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.net.*;
+import java.util.Arrays;
 
 
 public class Lab {
@@ -27,14 +28,14 @@ public class Lab {
         senderSocket.send(query);
         // Get response from root
         senderSocket.receive(r);
-        byte[] data = r.getData();
+        byte[] data = Arrays.copyOf(r.getData(), r.getLength());
         // Query name servers iteratively
         while (isNoError(data) && getAnswer(data) == 0 && getAuthority(data) > 0){
             InetAddress add = getNextServer(data);
             byte[] newData = createQuery(data);
             senderSocket.send(new DatagramPacket(newData,newData.length, add, UDP_PORT));
             senderSocket.receive(r);
-            data = r.getData();
+            data = Arrays.copyOf(r.getData(), r.getLength());
         }
         //Forward response to user
         r.setAddress(userAddress);
